@@ -1,27 +1,15 @@
 package com.example.lab_week_09
 
-import android.R.id.input
+// import android.R.id.input // <--- DIHAPUS
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +24,15 @@ import com.example.lab_week_09.ui.theme.LAB_WEEK_09Theme
 import com.example.lab_week_09.ui.theme.OnBackgroundItemText
 import com.example.lab_week_09.ui.theme.OnBackgroundTitleText
 import com.example.lab_week_09.ui.theme.PrimaryTextButton
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.net.URLDecoder
+import java.net.URLEncoder
+// import java.sql.Types // <--- DIHAPUS
+import com.squareup.moshi.Types // <--- DIPERBAIKI: Import yang benar untuk Moshi
+import com.example.lab_week_09.R // <--- DIPERBAIKI: Import yang benar untuk Resource
 
 // Previously we extend AppCompatActivity
 // now we extend ComponentActivity
@@ -82,14 +79,26 @@ fun Home(
     var inputField = remember { mutableStateOf(Student(""))}
 
     HomeContent(
-        listData,
-        inputField.value,
-        { input -> inputField.value = inputField.value.copy(input)},
-        {
-            listData.add(inputField.value)
-            inputField.value = Student("")
+        listData = listData,
+        inputField = inputField.value,
+        onInputValueChange = { input -> inputField.value = inputField.value.copy(name = input) },
+        onButtonClick = {
+            if (inputField.value.name.isNotBlank()) {
+                listData.add(inputField.value)
+                inputField.value = Student("")
+            }
         },
-        { navigateFromHomeToResult(listData.toList().toString())}
+        navigateFromHomeToResult = {
+            val moshi = Moshi.Builder()
+                .add(KotlinJsonAdapterFactory())
+                .build()
+            // DIPERBAIKI: Menggunakan com.squareup.moshi.Types
+            val type = Types.newParameterizedType(List::class.java, Student::class.java)
+            val adapter = moshi.adapter<List<Student>>(type)
+            val json = adapter.toJson(listData)
+            val encodedJson = URLEncoder.encode(json, "UTF-8")
+            navigateFromHomeToResult(encodedJson)
+        }
     )
 }
 
@@ -110,9 +119,7 @@ fun HomeContent(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Here, we use Text to display a text
-                OnBackgroundTitleText(text = stringResource (
-                    id = R.string.enter_item
-                ))
+                OnBackgroundTitleText(text = "Enter Item")
                 TextField (
                     value = inputField.name,
                     keyboardOptions = KeyboardOptions(
@@ -126,11 +133,11 @@ fun HomeContent(
 
                 Row {
                     PrimaryTextButton(text = stringResource (
-                        id = R.string.button_click)) {
+                        id = R.string.button_click)) { // <--- DIPERBAIKI: R sekarang dikenali
                         onButtonClick()
                     }
                     PrimaryTextButton(text = stringResource (
-                        id = R.string.button_navigate)) {
+                        id = R.string.button_navigate)) { // <--- DIPERBAIKI: R sekarang dikenali
                         navigateFromHomeToResult()
                     }
                 }
@@ -151,12 +158,30 @@ fun HomeContent(
 
 @Composable
 fun ResultContent(listData: String) {
-    Column(
+    val moshi = Moshi.Builder()
+        .add(KotlinJsonAdapterFactory())
+        .build()
+    // DIPERBAIKI: Menggunakan com.squareup.moshi.Types
+    val type = Types.newParameterizedType(List::class.java, Student::class.java)
+    val adapter = moshi.adapter<List<Student>>(type)
+
+    val decodedList = remember(listData) {
+        runCatching {
+            val decodedJson = URLDecoder.decode(listData, "UTF-8")
+            adapter.fromJson(decodedJson) ?: emptyList()
+        }.getOrDefault(emptyList())
+    }
+
+    // DIPERBAIKI: Mengganti Column menjadi LazyColumn
+    LazyColumn(
         modifier = Modifier
             .padding(vertical = 4.dp)
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        OnBackgroundItemText(text = listData)
+        // DIPERBAIKI: 'items' sekarang valid di dalam LazyColumn
+        items(decodedList) { student ->
+            OnBackgroundItemText(text = "Student(name =" + student.name + ")")
+        }
     }
 }

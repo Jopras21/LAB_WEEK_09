@@ -16,20 +16,20 @@ fun App (navController: NavHostController) {
         startDestination = "home"
     ) {
         composable("home") {
-            Home { navController.navigate (
-                "resultContent/?listData=$it")
+            Home { jsonData ->
+                navController.currentBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("listData", jsonData)
+                navController.navigate("resultContent")
             }
         }
 
-        composable (
-            "resultContent/{listData}",
-            arguments = listOf(navArgument("listData") {
-                type = NavType.StringType
-            })
-        ) {
-            ResultContent (
-                it.arguments?.getString("listData").orEmpty()
-            )
+        composable("resultContent") {
+            val listData = navController.previousBackStackEntry
+                ?.savedStateHandle
+                ?.get<String>("listData")
+                .orEmpty()
+            ResultContent(listData)
         }
     }
 }
